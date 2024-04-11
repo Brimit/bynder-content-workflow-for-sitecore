@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+
+using Bynder.Content.SitecoreConnector.Managers.Models.Mapping;
 using Bynder.Content.SitecoreConnector.Web.Models.Import;
 
 namespace Bynder.Content.SitecoreConnector.Web.Models.Mapping
@@ -19,6 +21,7 @@ namespace Bynder.Content.SitecoreConnector.Web.Models.Mapping
         public List<SitecoreTemplateViewModel> SitecoreTemplates { get; set; }
         public List<SitecoreTemplateField> OptionsContentFolders { get; set; }
         public List<SitecoreTemplateField> OptionsTemplates { get; set; }
+
         public List<ProjectViewModel> CwbProjects { get; set; }
         public AddMappingViewModel AddMappingModel { get; set; }
         public Dictionary<string, string> Rules { get; set; }

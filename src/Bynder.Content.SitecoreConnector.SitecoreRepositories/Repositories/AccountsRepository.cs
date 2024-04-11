@@ -29,8 +29,8 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                     TemplatesRootFolderId = accountSettingItem["Templates Root Folder"],
                     OptionsContentFolderId = accountSettingItem["Options Content Folder"],
                     OptionsTemplateId = accountSettingItem["Options Template"],
-                    DateFormat = accountSettingItem["Date Format"],
-					DateTimeParseFormat = accountSettingItem["DateTime Field Format"],
+                    DateFormat = accountSettingItem["Date Format"], // "Output Date Format" - display name. Appears in the user interface.
+                    DateTimeParseFormat = accountSettingItem["DateTime Field Format"],
 					GatherContentUrl = accountSettingItem["Platform Url"],
 					DropTreeHomeNode = accountSettingItem["DropTree Home Node"],
 					AccountItemId = accountSettingItem.ID.ToString()

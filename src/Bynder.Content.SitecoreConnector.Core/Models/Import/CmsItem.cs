@@ -13,6 +13,7 @@ namespace Bynder.Content.SitecoreConnector.Core.Models.Import
        }
         public string Id { get; set; }
         public string Title { get; set; }
+        public string Path { get; set; }
         public string Icon { get; set; }
         public string Language { get; set; }
         public CmsTemplate Template { get; set; }

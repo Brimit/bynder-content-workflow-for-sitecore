@@ -47,10 +47,7 @@ namespace Bynder.Content.SitecoreConnector.Web.Controllers
             {
                 var project = filters.Projects.FirstOrDefault(i => i.Id == status.ProjectId);
                 var statusName = status.Name;
-                if (project != null)
-                {
-                    statusName = statusName + " (" + project.Name + ")";
-                }
+
                 filtersViewModel.Statuses.Add(new StatusViewModel
                 {
                     Id = status.Id,

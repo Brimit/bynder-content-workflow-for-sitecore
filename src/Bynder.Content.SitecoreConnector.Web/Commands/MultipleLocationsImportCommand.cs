@@ -67,7 +67,7 @@ namespace Bynder.Content.SitecoreConnector.Web.Commands
                 MinWidth = "881",
                 MinHeight = "400",
                 Maximizable = false,
-                Header = "Import Content from Content Workflow"
+                Header = "Multilocation Import Content from Content Workflow"
             };
 
             Context.ClientPage.ClientResponse.Broadcast(Context.ClientPage.ClientResponse.ShowModalDialog(options), "Shell");

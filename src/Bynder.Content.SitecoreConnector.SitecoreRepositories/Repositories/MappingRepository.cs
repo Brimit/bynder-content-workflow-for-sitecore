@@ -11,12 +11,15 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
     using Sitecore.Data.Managers;
     using Sitecore.Data.Templates;
     using Sitecore.SecurityModel;
-    
+
     using Core.DependencyInjection;
     using Core.Interfaces;
     using Core.Models.Import;
     using Core.Models.Mapping;
     using Configuration;
+    using System.Web.UI.WebControls;
+    using System.Xml.Linq;
+    using ProtoBuf;
 
     [Service(typeof(IMappingRepository))]
     public class MappingRepository : BaseSitecoreRepository, IMappingRepository
@@ -188,7 +191,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                     var field = fields.FirstOrDefault(fm => fm["CWB Field Id"] == templateField.CwbField.Id);
                     if (field != null)
                     {
-                        UpdateFieldMapping(field, templateField.CmsField.TemplateField.FieldId, sortOrder);
+                        UpdateFieldMapping(field, templateField.CmsField, sortOrder);
                     }
                     else
                     {
@@ -224,7 +227,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                     var field = fields.FirstOrDefault(fm => fm["CWB Field Id"] == templateField.CwbField.Id);
                     if (field != null)
                     {
-                        UpdateFieldMapping(field, templateField.CmsField.TemplateField.FieldId, sortOrder);
+                        UpdateFieldMapping(field, templateField.CmsField, sortOrder);
                     }
                     else
                     {
@@ -362,7 +365,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                                 var folderItem = parent.Children.FirstOrDefault(x => x.Name == Constants.PageComponents);
                                 if (folderItem == null)
                                 {
-                                   folderItem = parent.Add(Constants.PageComponents, template);
+                                    folderItem = parent.Add(Constants.PageComponents, template);
                                 }
                                 result = folderItem.ID.ToString();
                             }
@@ -488,7 +491,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             mapping.CwbTemplate = new CwbTemplate
             {
                 CwbTemplateId = templateMapping["CWB Template"],
-                CwbTemplateName = templateMapping.Name,
+                CwbTemplateName = templateMapping["CWB Template Name"],
             };
 
             var accountSettings = accountsRepository.GetAccountSettings();
@@ -497,19 +500,11 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             {
                 dateFormat = Constants.DateFormat;
             }
-            double d;
-            var cwbUpdateDate = string.Empty;
-            if (Double.TryParse(templateMapping["Last Updated in CWB"], out d))
-            {
-                var posixTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
-                cwbUpdateDate = TimeZoneInfo.ConvertTimeFromUtc(posixTime.AddMilliseconds(d * 1000), TimeZoneInfo.Local).ToString(dateFormat);
-            }
-
 
             mapping.IsRelated = templateMapping.TemplateName == Constants.TemplateRelatedMappingName;
             var relatedMapping = templateMapping.Fields[Constants.MainMappingFieldName];
             mapping.MappingGroupId = relatedMapping != null && relatedMapping.HasValue
-                ? ((Sitecore.Data.Fields.ReferenceField) relatedMapping).TargetItem["Template mapping title"]
+                ? ((Sitecore.Data.Fields.ReferenceField)relatedMapping).TargetItem["Template mapping title"]
                 : mapping.MappingGroupId = templateMapping["Template mapping title"];
 
 
@@ -522,15 +517,13 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                     TemplateId = scTemplate.ID.ToString(),
                     TemplateFields = GetTemplateFields(scTemplate)
                 };
-                mapping.LastUpdatedDate = cwbUpdateDate;
+
                 mapping.MappingTitle = templateMapping["Template mapping title"];
                 mapping.DefaultLocationId = templateMapping["Default Location"];
                 mapping.DefaultLocationTitle = GetItem(templateMapping["Default Location"]) != null
-                    ? GetItem(templateMapping["Default Location"]).Name
+                    ? GetItem(templateMapping["Default Location"]).Paths.Path
                     : "";
-                mapping.LastMappedDateTime =
-                    DateUtil.IsoDateToDateTime(templateMapping["Last Mapped Date"])
-                        .ToString(dateFormat);
+                mapping.LastMappedDateTime = DateUtil.IsoDateToDateTime(templateMapping["Last Mapped Date"]).ToString(dateFormat);
             }
             else
             {
@@ -573,7 +566,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             return result;
         }
 
-        private IEnumerable<TemplateField> GetFields(Item template)
+        private IEnumerable<Sitecore.Data.Templates.TemplateField> GetFields(Item template)
         {
             return TemplateManager.GetTemplate(template.ID, ContextDatabase).GetFields();
         }
@@ -705,23 +698,35 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             using (new SecurityDisabler())
             {
                 var mapping = ContextDatabase.GetTemplate(new ID(Constants.CwbTemplateMapping));
+                var accountSettings = accountsRepository.GetAccountSettings();
 
                 SetupLinkedCwbTemplate(templateMapping);
 
-                var validFolderName = ItemUtil.ProposeValidItemName(templateMapping.CwbTemplate.CwbTemplateName + " - " + templateMapping.MappingTitle);
+                var validFolderName = ItemUtil.ProposeValidItemName(templateMapping.MappingTitle);
                 var createdItem = mappingsFolder.Add(validFolderName, mapping);
                 using (new SecurityDisabler())
                 {
                     createdItem.Editing.BeginEdit();
                     createdItem.Fields["Sitecore Template"].Value = templateMapping.CmsTemplate.TemplateId;
                     createdItem.Fields["Default Location"].Value = templateMapping.DefaultLocationId;
+                    createdItem.Fields["CWB Template Name"].Value = templateMapping.CwbTemplate.CwbTemplateName;
+
                     if (!string.IsNullOrEmpty(templateMapping.MappingTitle))
                     {
                         createdItem.Fields["Template mapping title"].Value = templateMapping.MappingTitle;
                     }
                     createdItem.Fields["CWB Template"].Value = templateMapping.CwbTemplate.CwbTemplateId;
                     createdItem.Fields["Last Mapped Date"].Value = DateUtil.ToIsoDate(DateTime.Now);
-                    createdItem.Fields["Last Updated in CWB"].Value = templateMapping.LastUpdatedDate;
+
+                    double d;
+                    DateTime cwbUpdateDate = DateTime.MinValue;
+                    if (Double.TryParse(templateMapping.LastUpdatedDate, out d))
+                    {
+                        var posixTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
+                        cwbUpdateDate = TimeZoneInfo.ConvertTimeFromUtc(posixTime.AddMilliseconds(d * 1000), TimeZoneInfo.Local);
+                    }
+
+                    createdItem.Fields["Last Updated in CWB"].Value = DateUtil.ToIsoDate(cwbUpdateDate);
                     createdItem.Editing.EndEdit();
                 }
 
@@ -736,10 +741,11 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             using (new SecurityDisabler())
             {
                 var mapping = ContextDatabase.GetTemplate(new ID(Constants.CwbRelatedTemplateMapping));
+                var accountSettings = accountsRepository.GetAccountSettings();
 
                 SetupLinkedCwbTemplate(templateMapping);
 
-                var validFolderName = ItemUtil.ProposeValidItemName(templateMapping.CwbTemplate.CwbTemplateName + " - " + templateMapping.MappingTitle);
+                var validFolderName = ItemUtil.ProposeValidItemName(templateMapping.MappingTitle);
                 var createdItem = relatedMappingItem.Parent.Add(validFolderName, mapping);
 
                 using (new SecurityDisabler())
@@ -747,13 +753,24 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                     createdItem.Editing.BeginEdit();
                     createdItem.Fields["Sitecore Template"].Value = templateMapping.CmsTemplate.TemplateId;
                     createdItem.Fields["Default Location"].Value = templateMapping.DefaultLocationId;
+                    createdItem.Fields["CWB Template Name"].Value = templateMapping.CwbTemplate.CwbTemplateName;
+
                     if (!string.IsNullOrEmpty(templateMapping.MappingTitle))
                     {
                         createdItem.Fields["Template mapping title"].Value = templateMapping.MappingTitle;
                     }
                     createdItem.Fields["CWB Template"].Value = templateMapping.CwbTemplate.CwbTemplateId;
                     createdItem.Fields["Last Mapped Date"].Value = DateUtil.ToIsoDate(DateTime.Now);
-                    createdItem.Fields["Last Updated in CWB"].Value = templateMapping.LastUpdatedDate;
+
+                    double d;
+                    DateTime cwbUpdateDate = DateTime.MinValue;
+                    if (Double.TryParse(templateMapping.LastUpdatedDate, out d))
+                    {
+                        var posixTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
+                        cwbUpdateDate = TimeZoneInfo.ConvertTimeFromUtc(posixTime.AddMilliseconds(d * 1000), TimeZoneInfo.Local);
+                    }
+
+                    createdItem.Fields["Last Updated in CWB"].Value = DateUtil.ToIsoDate(cwbUpdateDate);
                     createdItem.Fields[Constants.MainMappingFieldName].Value = templateMapping.CmsMainMappingId;
                     createdItem.Fields[Constants.ContainerFieldName].Value = templateMapping.CmsContainerTemplateId;
                     createdItem.Editing.EndEdit();
@@ -799,7 +816,19 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                 {
                     item.Fields["Template mapping title"].Value = templateMapping.MappingTitle;
                 }
+
                 item.Fields["Last Mapped Date"].Value = DateUtil.ToIsoDate(DateTime.Now);
+
+                double d;
+                DateTime cwbUpdateDate = DateTime.MinValue;
+                if (Double.TryParse(templateMapping.LastUpdatedDate, out d))
+                {
+                    var posixTime = DateTime.SpecifyKind(new DateTime(1970, 1, 1), DateTimeKind.Utc);
+                    cwbUpdateDate = TimeZoneInfo.ConvertTimeFromUtc(posixTime.AddMilliseconds(d * 1000), TimeZoneInfo.Local);
+                }
+                
+                item.Fields["Last Updated in CWB"].Value = DateUtil.ToIsoDate(cwbUpdateDate);
+
                 item.Editing.EndEdit();
             }
         }
@@ -820,12 +849,14 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             }
         }
 
-        private void UpdateFieldMapping(Item item, string sitecoreFieldId, int sortOrder)
+        private void UpdateFieldMapping(Item item, CmsField cmsField, int sortOrder)
         {
             using (new SecurityDisabler())
             {
                 item.Editing.BeginEdit();
-                item.Fields["Sitecore Field"].Value = sitecoreFieldId;
+                item.Fields["Sitecore Field"].Value = cmsField.TemplateField.FieldId;
+                item.Fields["Options Content Folder"].Value = cmsField.TemplateField.OptionsContentFolderId;
+                item.Fields["Options Template"].Value = cmsField.TemplateField.OptionsTemplateId;
                 item.Fields[FieldIDs.Sortorder].Value = sortOrder.ToString();
                 item.Editing.EndEdit();
             }

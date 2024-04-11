@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Web.Mvc;
 using Bynder.Content.SitecoreConnector.Managers.Interfaces;
@@ -560,6 +561,29 @@ namespace Bynder.Content.SitecoreConnector.Web.Controllers
                 return Json(new { status = "error", message = e.Message }, JsonRequestBehavior.AllowGet);
             }
 
+        }
+
+        public ActionResult CheckIfMappingExists(string mappingName)
+        {
+            try
+            {
+                var model = new List<TemplateMappingViewModel>();
+                var mappings = MappingManager.GetMappingModel();
+
+                var ifMappingExists = mappings.Exists(x => x.MappingTitle.Equals(mappingName));
+
+                return Json(ifMappingExists, JsonRequestBehavior.AllowGet);
+            }
+            catch (WebException exception)
+            {
+                Log.Error("ContentWorkflow message: " + exception.Message + exception.StackTrace, exception);
+                return Json(new { status = "error", message = exception.Message + " Please check your credentials" }, JsonRequestBehavior.AllowGet);
+            }
+            catch (Exception exception)
+            {
+                Log.Error("ContentWorkflow message: " + exception.Message + exception.StackTrace, exception);
+                return Json(new { status = "error", message = exception.Message }, JsonRequestBehavior.AllowGet);
+            }
         }
 
         [HttpPost]

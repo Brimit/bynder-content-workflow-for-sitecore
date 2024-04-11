@@ -24,6 +24,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
     using Core.Models.Import;
 
     using Sitecore.Links.UrlBuilders;
+    using Sitecore.Pipelines.HasPresentation;
 
     [Service(typeof(IItemsRepository))]
     public class ItemsRepository : BaseSitecoreRepository, IItemsRepository
@@ -356,7 +357,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
 
                         foreach (var option in cmsField.Options)
                         {
-                            var children = GetDatasourceOfChoise(createdItem, cmsField.TemplateField.FieldId, option, finalListOptions);
+                            var children = GetDatasourceOfChoise(option, finalListOptions);
                             //option = CWB option.Label
                             if (children != null)
                             {
@@ -860,7 +861,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
 
             Item linkedItem = items
                 .OrderBy(i => i.Paths.FullPath)
-                .FirstOrDefault(i => i.Fields[FieldIDs.LayoutField].HasValue || i.Fields[FieldIDs.LayoutField].ContainsStandardValue);
+                .FirstOrDefault(i => HasPresentationPipeline.Run(i));
 
             if (linkedItem != null)
             {
@@ -948,7 +949,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             using (IProviderSearchContext context = index.CreateSearchContext())
             {
                 var query = context.GetQueryable<SearchResultItem>()
-                    .Where(i => i["gc_content_id"] == cwbId);
+                    .Where(i => i["cwb_content_id"] == cwbId);
 
                 query = query.Filter(i => i.Language == Context.Language.Name);
 
@@ -1044,59 +1045,8 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
         /// <param name="fieldId"></param>
         /// <param name="option"></param>
         /// <returns></returns>
-        private Item GetDatasourceOfChoise(Item updatedItem, string fieldId, KeyValuePair<string, string> option, List<Item> finalListOptions)
+        private Item GetDatasourceOfChoise(KeyValuePair<string, string> option, List<Item> finalListOptions)
         {
-            //var dataSourcePath = GetDatasourcePath(updatedItem, fieldId);
-
-            //Item[] datasourceItems = null;
-            //if (updatedItem.Fields[new ID(fieldId)].TypeKey == "treelist" || updatedItem.Fields[new ID(fieldId)].TypeKey == "treelistex")
-            //{
-            //    if (dataSourcePath.IndexOf("IncludeTemplatesForSelection", StringComparison.InvariantCultureIgnoreCase) > 0)
-            //    {
-            //        var templatesStr = dataSourcePath.Substring(dataSourcePath.IndexOf("IncludeTemplatesForSelection",
-            //            StringComparison.InvariantCultureIgnoreCase));
-            //        templatesStr = templatesStr.Substring(templatesStr.IndexOf("=", StringComparison.Ordinal) + 1)
-            //            .Trim();
-            //        if (templatesStr.IndexOf("&", StringComparison.Ordinal) != -1)
-            //        {
-            //            templatesStr = templatesStr.Substring(0, templatesStr.IndexOf("&", StringComparison.Ordinal));
-            //        }
-            //        if (!string.IsNullOrWhiteSpace(templatesStr))
-            //        {
-            //            var startPath = dataSourcePath.Trim();
-            //            startPath = startPath
-            //                .Substring(startPath.IndexOf("=", StringComparison.InvariantCultureIgnoreCase) + 1).Trim();
-            //            startPath = startPath.Substring(0,
-            //                startPath.IndexOf("&", StringComparison.InvariantCultureIgnoreCase));
-            //            if (!string.IsNullOrWhiteSpace(startPath))
-            //            {
-            //                var startItem = updatedItem.Database.SelectSingleItem(startPath);
-            //                if (startItem != null)
-            //                {
-            //                    var templates = templatesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-            //                        .ToList();
-            //                    datasourceItems = GetDescendantsByTemplateNamesWithFallback(startItem, templates)
-            //                        .ToArray();
-            //                }
-            //            }
-            //        }
-            //    }
-            //    else
-            //    {
-            //        var startItem = updatedItem.Database.SelectSingleItem(dataSourcePath);
-            //        datasourceItems = startItem.Axes.GetDescendants();
-            //    }
-            //}
-            //else
-            //{
-            //    datasourceItems = LookupSources.GetItems(updatedItem, dataSourcePath);
-            //}
-
-            //if (datasourceItems == null)
-            //{
-            //    return null;
-            //}
-
             var label = option.Value.Trim();
             if (label.Contains('&'))
             {

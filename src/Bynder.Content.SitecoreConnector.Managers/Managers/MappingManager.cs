@@ -14,6 +14,11 @@ namespace Bynder.Content.SitecoreConnector.Managers.Managers
     using Core.Interfaces;
     using Core.Models.Import;
     using Core.Models.Mapping;
+    using Sitecore.Pipelines.InsertRenderings.Processors;
+    using Sitecore.Configuration;
+    using Sitecore;
+    using Sitecore.Globalization;
+    using Sitecore.Data;
 
     [Service(typeof(IMappingManager))]
     public class MappingManager : BaseManager, IMappingManager
@@ -27,6 +32,9 @@ namespace Bynder.Content.SitecoreConnector.Managers.Managers
         protected IItemsService ItemService;
         protected readonly ILogger Log;
         protected ITemplatesService TemplateService;
+        private readonly IAccountsRepository AccountsRepository;
+        protected readonly Database ContextDatabase;
+        protected readonly Language ContextLanguage;
 
         public MappingManager(
             IMappingRepository mappingRepository,
@@ -43,6 +51,9 @@ namespace Bynder.Content.SitecoreConnector.Managers.Managers
             ItemService = itemService;
             Log = logger ?? new NullLogger();
             TemplateService = templateService;
+            AccountsRepository = accountsRepository;
+            ContextDatabase = Factory.GetDatabase("master");
+            ContextLanguage = Context.Language;
         }
 
         public List<MappingModel> GetMappingModel()
@@ -310,6 +321,7 @@ namespace Bynder.Content.SitecoreConnector.Managers.Managers
                     CwbTemplateId = template.Data.Id.ToString(),
                     CwbTemplateName = template.Data.Name
                 },
+                LastUpdatedDate = template.Data.Updated.ToString(),
             };
 
             var fieldMappings = ConvertToFieldMappings(model.FieldMappings);
@@ -477,7 +489,7 @@ namespace Bynder.Content.SitecoreConnector.Managers.Managers
                     var dateFormat = CwbAccountSettings.DateFormat;
                     if (string.IsNullOrEmpty(dateFormat))
                     {
-                        dateFormat = Constants.DateFormat;
+                        dateFormat = SitecoreRepositories.Repositories.Constants.DateFormat;
                     }
                     mapping.LastUpdatedDate = cwbUpdateDate.ToString(dateFormat);
                 }

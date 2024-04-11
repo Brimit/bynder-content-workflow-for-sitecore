@@ -34,6 +34,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                         var node = new CmsItem
                         {
                             Title = item.Name,
+                            Path = item.Paths.Path,
                             Id = item.ID.ToString(),
                             Icon = template != null ? template.Icon : "",
                         };
@@ -44,6 +45,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                         var node = new CmsItem
                         {
                             Title = item.Name,
+                            Path = item.Paths.Path,
                             Id = item.ID.ToString(),                            
                             Icon = template != null ? template.Icon : "",
                         };
@@ -61,6 +63,7 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                     {
                         Title = item.Name,
                         Id = item.ID.ToString(),
+                        Path = item.Paths.Path,
                         Icon = template != null ? template.Icon : "",
                         Children = CreateChildrenTree(id, item.Children),
                     };
@@ -73,21 +76,44 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
 
         public CmsItem GetHomeNode(string id)
         {
-            CmsItem model = null;
             var accountSettings = accountsRepository.GetAccountSettings();
             var dropTreeHomeNode = accountSettings.DropTreeHomeNode;
             if (string.IsNullOrEmpty(dropTreeHomeNode))
             {
                 dropTreeHomeNode = Constants.DropTreeHomeNode;
             }
-            var home = GetItem(dropTreeHomeNode);
+
+            return GetNode(dropTreeHomeNode);
+        }
+
+        public CmsItem GetOptionsContentFoldersNode()
+        {
+            var accountSettings = accountsRepository.GetAccountSettings();
+            var optionsContentFolderIdNode = accountSettings.OptionsContentFolderId;
+
+            return GetNode(optionsContentFolderIdNode);
+        }
+
+        public CmsItem GetOptionsTemplatesNode()
+        {
+            var accountSettings = accountsRepository.GetAccountSettings();
+            var optionsTemplateIdNode = accountSettings.OptionsTemplateId;
+
+            return GetNode(optionsTemplateIdNode);
+        }
+
+        public CmsItem GetNode(string itemId)
+        {
+            CmsItem model = null;
+            var home = GetItem(itemId);
             var template = GetItemTemplate(home.TemplateID);
 
-            if (string.IsNullOrEmpty(id) || id == "null")
+            if (string.IsNullOrEmpty(itemId) || itemId == "null")
             {
-                model  = new CmsItem
+                model = new CmsItem
                 {
                     Title = home.Name,
+                    Path = home.Paths.Path,
                     Id = home.ID.ToString(),
                     Icon = template != null ? template.Icon : "",
                 };
@@ -99,14 +125,15 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
                     Title = home.Name,
                     Id = home.ID.ToString(),
                     Icon = template != null ? template.Icon : "",
-                    Children = CreateChildrenTree(id, home.Children),
+                    Children = CreateChildrenTree(itemId, home.Children),
+                    Path = home.Paths.Path
                 };
             }
 
             return model;
         }
 
-        public List<CmsItem> GetChildren(string id)
+        public List<CmsItem> GetChildren(string id, bool isTemplateRestriction)
         {
             var model = new List<CmsItem>();
             var parent = GetItem(id);
@@ -118,12 +145,34 @@ namespace Bynder.Content.SitecoreConnector.SitecoreRepositories.Repositories
             {
                 var item = (Item)child;
                 var template = GetItemTemplate(item.TemplateID);
-                model.Add(new CmsItem
+
+                if (!isTemplateRestriction)
                 {
-                    Title = item.Name,
-                    Id = item.ID.ToString(),
-                    Icon = template != null ? template.Icon : ""
-                });
+                    model.Add(new CmsItem
+                    {
+                        Title = item.Name,
+                        Path = item.Paths.Path,
+                        Id = item.ID.ToString(),
+                        Icon = template != null ? template.Icon : ""
+                    });
+                }
+                else
+                {
+                    if (item.TemplateID == Sitecore.TemplateIDs.Template)
+                    {
+                        model.Add(new CmsItem
+                        {
+                            Title = item.Name,
+                            Path = item.Paths.Path,
+                            Id = item.ID.ToString(),
+                            Icon = template != null ? template.Icon : ""
+                        });
+                    }
+                    else
+                    {
+                        continue;
+                    }
+                }
             }
 
             return model;

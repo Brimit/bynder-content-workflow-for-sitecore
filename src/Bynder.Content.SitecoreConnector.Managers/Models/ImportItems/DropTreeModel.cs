@@ -12,6 +12,8 @@ namespace Bynder.Content.SitecoreConnector.Managers.Models.ImportItems
 
         [JsonProperty(PropertyName = "title")]
         public string Title { get; set; }
+        [JsonProperty(PropertyName = "path")]
+        public string Path { get; set; }
         [JsonProperty(PropertyName = "key")]
         public string Key { get; set; }
         [JsonProperty(PropertyName = "children")]
